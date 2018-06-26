@@ -1,4 +1,14 @@
 document.addEventListener('DOMContentLoaded', function () {
+    const player = {
+        name: "",
+        win: 0,
+        lose: 0,
+        draw: 0
+    }
+
+
+
+
     const config = {
         apiKey: "AIzaSyAYzgy54TZKLrt6zYFk56s6O47d9Ciu180",
         authDomain: "week7hw-65147.firebaseapp.com",
@@ -7,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function () {
         storageBucket: "",
         messagingSenderId: "230237557865"
     };
+
     firebase.initializeApp(config);
 
 
@@ -28,11 +39,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     db.ref().on('value', (snapshot) => {
         console.log(`IN PROGRESS: ${snapshot.val().inProgress}`)
+        // ['1','2'].forEach(playerNum => {
+        //     $('#'+playerNum+'.nameTag').text((snapshot.val()['p1_name'] != "") ? snapshot.val()[snapshot.val()['p1_name']] : `Waiting for Player ${playerNum}`)
+        // });
+        $('#1.nameTag').text((snapshot.val().p1_name != "") ? snapshot.val().p1_name : "Waiting for Player 1")
+        $('#2.nameTag').text((snapshot.val().p2_name != "") ? snapshot.val().p2_name : "Waiting for Player 2")
 
         if (snapshot.val().inProgress) {
-
-        } else {
-            // $('#p1_name').empty().text("Waiting for Player FOO")
+            // $('#p2_name').empty().text("Waiting for Player FOO")
             // <input type="text" name="name" id="name" placeholder="Name">
             // <button>Start</button>
             $('#welcome').empty()
@@ -54,45 +68,31 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log(`IN PROGRESS: ${snapshot.val()}`)
     });
 
-    connectionsRef.on("value", function (snap) {
+    function setPlayerName(playerNum) {
+        let args = {};
+        args[`p${playerNum}_name`] = $('#playerName').val();
+        db.ref().update(args).then(function () {
+            console.log("Document successfully updated!");
+        })
+            .catch(function (error) {
+                // The document probably doesn't exist.
+                console.error(`Error updating document for player ${playerNum}: `, error);
+            });
+    }
 
-        // Display the viewer count in the html.
-        // The number of online users is the number of children in the connections list.
-        $("#watchers").text(snap.numChildren());
-    });
-
-
+    // Event fires when user clicks Start after having put in his name.
     $('#welcome').on('click', '#startButton', (e) => {
         console.log('START')
-        // game.get()
-        // .then(doc => {
-        //     let data = doc.data;
-        //     console.log(1,data.p1_name);
-        //     console.log(2,data.p2_name);
-        //     if (!data.p1_name) {
-        //         db.ref().set({
-        //             p1_name: $('#playerName').val()
-        //         }).then(function() {
-        //             console.log("Document successfully updated!");
-        //         })
-        //         .catch(function(error) {
-        //             // The document probably doesn't exist.
-        //             console.error("Error updating document: ", error);
-        //         });
-        //     } else if (!data.p2_name) {
-        //         db.ref().set({
-        //             p2_name: $('#playerName').val(),
-        //             inProgress: true
-        //         }).then(function() {
-        //             console.log("Document successfully updated!");
-        //         })
-        //         .catch(function(error) {
-        //             // The document probably doesn't exist.
-        //             console.error("Error updating document: ", error);
-        //         });
-        //     }
-        // })
-        console.log($('#playerName').val())
+        db.ref().once('value').then(function (snapshot) {
+            console.log(`SNAPSHOT: ${JSON.stringify()}`)
+            console.log(`IN PROGRESS: ${snapshot.val().inProgress}`)
+            if (!snapshot.val().p2_name) {
+                setPlayerName(1)
+            } else if (!snapshot.val().p2_name) {
+                setPlayerName(2)
+            }
+            console.log($('#playerName').val())
+        });
     });
 
 

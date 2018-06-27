@@ -35,7 +35,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const connectedRef = db.ref(".info/connected");
 
 
-    // initialize database
+      window.addEventListener("beforeunload", function (event) {
+        console.log(`Before Unload ${event}`)
+        console.log(JSON.stringify(player))
+        if (player.slot) {
+            db.ref(`players/${player.slot}`).remove()
+            .then(function() {
+              console.log("Remove succeeded.")
+            })
+            .catch(function(error) {
+              console.log("Remove failed: " + error.message)
+            });
+        }
+      });
 
     let players = db.ref('players');
 

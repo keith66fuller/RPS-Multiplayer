@@ -4,16 +4,6 @@ document.addEventListener('DOMContentLoaded', function () {
         Scissors: 1,
         Paper: 0
     }
-    const config = {
-        apiKey: "AIzaSyBlpgyV1NYKnitdSRUCP83Bb1Sl6qWqEQ0",
-        authDomain: "multiplayer-rockpaperscissors.firebaseapp.com",
-        databaseURL: "https://multiplayer-rockpaperscissors.firebaseio.com",
-        projectId: "multiplayer-rockpaperscissors",
-        storageBucket: "multiplayer-rockpaperscissors.appspot.com",
-        messagingSenderId: "456807530612"
-    };
-
-    firebase.initializeApp(config);
 
     const player = {
         name: null,
@@ -24,6 +14,16 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     let otherPlayer;
+
+    firebase.initializeApp({
+        apiKey: "AIzaSyBlpgyV1NYKnitdSRUCP83Bb1Sl6qWqEQ0",
+        authDomain: "multiplayer-rockpaperscissors.firebaseapp.com",
+        databaseURL: "https://multiplayer-rockpaperscissors.firebaseio.com",
+        projectId: "multiplayer-rockpaperscissors",
+        storageBucket: "multiplayer-rockpaperscissors.appspot.com",
+        messagingSenderId: "456807530612"
+    });
+
 
     try {
         let app = firebase.app();
@@ -37,8 +37,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const db = firebase.database();
     const dbRef = db.ref();
-    const connectionsRef = db.ref("/connections");
-    const connectedRef = db.ref(".info/connected");
 
     dbRef.update({ turn: 0 });
 
@@ -65,8 +63,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (playerNum == player.slot) {
             dbRef.child('players').child(playerNum).update({ choice: $(this).text() })
             player.choice = $(this).text();
-            $(`.${player.num} .gameButton`).hide();
-            $(this).show();
+            $(`.${player.slot}.gameButton`).hide();
+            $(this).replaceWith(
+                $('<h1>').text($(this).text())
+            ).show();
             dbRef.child('turn').transaction((turn) => {
                 console.log(`TURN: ${turn}`)
 
@@ -76,13 +76,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     let p = game[player.choice];
                     let o = game[otherPlayer.choice];
                     let winner;
-                    if (Math.abs(p-o) > 1) {
-                        winner = (o>p)
+                    if (Math.abs(p - o) > 1) {
+                        winner = (o > p)
                     } else {
-                        winner = (p>0)
+                        winner = (p > 0)
                     }
 
                     console.log(`Winner is ${winner}`)
+
+                    let winnerName = winner ? player.name : otherPlayer.name
+
+                    dbRef.update({ winner: winnerName })
                 }
 
 
@@ -92,80 +96,32 @@ document.addEventListener('DOMContentLoaded', function () {
                 return ++turn;
             });
         }
-    })
-
-    // Event fires when player takes a turn
-    // firebase.database().ref('turn').on('value', (snapshot) => {
-    //     const turn = snapshot.val();
-    //     console.log(`TURN EVENT turn==${turn}`)
-    //     if (turn==0) {
-    //         console.log('NO TURN EVENT')
-    //     } else if (turn == 3) {
-    //         if (snapshot.child(`players/1`).exists() && snapshot.child(`players/2`).exists()) {
-    //             console.log(snapshot.child('players/1/choice').val() + ' ' + snapshot.child('players/2/choice').val())
-    //             let choice = {}
-    //             if (snapshot.child('players/1/choice').val() && snapshot.child('players/2/choice').val()) {
-    //                 choice[1] = game[snapshot.child('players/1/choice').val()]
-    //                 choice[2] = game[snapshot.child('players/2/choice').val()]
-
-    //                 if (choice[1] == choice[2]) {
-    //                     [1, 2].forEach(num => {
-    //                         dbRef.child(`players/${num}/choice`).transaction(() => {
-    //                             return null;
-    //                         }, null, false);
-    //                     });
-
-    //                     [1, 2].forEach(num => {
-    //                         console.log(`NUM 105: ${num}`)
-    //                         firebase.database().ref(`players/${num}/draw`).transaction((draws) => {
-    //                             return ++draws;
-    //                         }, null, false);
-
-    //                     });
-    //                 }
-    //             }
-    //         }
-
-    //         dbRef.update({ turn: 1 })
-    //     } else {
-    //         [1,2].forEach(num => {
-    //             console.log(`ELSE TURN: ${turn} num=${num} player.slot=${player.slot}`);
-    //             if (num == player.slot) {
-    //                 $('#gameMsg').text("It's Your Turn!");
-    //             } else {
-    //                 $('gameMsg').text("Waiting for other player to choose.");
-    //             }
-    //         })
-    //     }
-
-    // }, null, false);
-
-    // dbRef.child('turn').once('value', tSnap => {
-    //     if (tSnap.val() == 0) {
-    //         // $('.player1#gameMsg').text("It's Your Turn!");
-    //         // $('.player2#gameMsg').text(`Waiting for ${snapshot.child(`players/1/name`).val()} to choose.`);
-    //         dbRef.child('turn').transaction(() => { return 1 })
-    //     } else if (tSnap.val() == 1) {
-    //         // $('.player2#gameMsg').text("It's Your Turn!");
-    //         // $('.player1#gameMsg').text(`Waiting for ${snapshot.child(`players/2/name`).val()} to choose.`);
-    //         dbRef.child('turn').transaction(() => { return 2 });
-    //     }
-
-    // });
+    });
 
 
-    firebase.database().ref('turn').on('value', turn => {
+    db.ref('winner').once('value', snapshot => {
+        // db.ref('winner').off();
+        console.log(`103 Winner is ${snapshot.val()}`);
+        if (snapshot) {
+            db.ref('winner').remove().then(() => {
+                console.log(`Winner is ${snapshot.val()}`);
+                $('#winner').append($('<h1>').text(snapshot.val()));
+            })
+        }
+    });
+
+    db.ref('turn').on('value', turn => {
         turn = JSON.stringify(turn)
         if (turn) {
-            if (turn==3) {
+            if (turn == 3) {
 
             } else if (turn == player.slot) {
                 $('#gameMsg').text("It's Your Turn!");
             } else {
                 if (otherPlayer) {
                     $('#gameMsg').text(`Waiting for ${otherPlayer.name} to choose.`);
-                } else {}
-                    $('#gameMsg').text(`Waiting for the other player to choose.`);
+                } else { }
+                $('#gameMsg').text(`Waiting for the other player to choose.`);
             }
         }
     });
@@ -175,6 +131,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Event fires on IPL and whenever *anything* in the db changes.
     db.ref('players').on('value', (snapshot) => {
 
+        // If DB has another player, make a local copy of him.
         if (player.slot) {
             if (snapshot.child(player.slot % 2 + 1).exists()) {
                 console.log(`I am player ${player.slot} and there is a player ${player.slot % 2 + 1}`)
@@ -183,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Local
+        // page elements for this player.
         [1, 2].forEach(num => {
             let name = snapshot.child(`${num}/name`).val();
             if (player.slot == num) {
@@ -210,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             }
         });
-        // Both
+        // page elements for both players
         [1, 2].forEach(num => {
             if (snapshot.child(num).exists()) {
                 let name = snapshot.child(`${num}/name`).val();
@@ -230,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 $(`.${num}.stats`).show();
             } else {
                 $(`.${num}.nameTag`).text(`Waiting for Player ${num}`)
-                $(`${num}.gameButton`).hide();
+                $(`.${num}.gameButton`).hide();
                 $(`.${num}.stats`).hide();
             }
         });
@@ -251,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function () {
             player.slot = snapshot.hasChild('players/1') + snapshot.hasChild('players/2') + 1;
             console.log(`Slot will be ${player.slot}`)
         }).then(() => {
-            dbRef.child('players').child(player.slot).set({
+            dbRef.child(`players/${player.slot}`).set({
                 name: player.name,
                 win: 0,
                 lose: 0,

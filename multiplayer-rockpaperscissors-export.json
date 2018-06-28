@@ -1,0 +1,16 @@
+{
+  "players" : [ null, {
+    "draw" : 0,
+    "lose" : 0,
+    "name" : "Keith",
+    "slot" : 1,
+    "win" : 0
+  }, {
+    "draw" : 0,
+    "lose" : 0,
+    "name" : "Rick",
+    "slot" : 2,
+    "win" : 0
+  } ],
+  "turn" : 1
+}

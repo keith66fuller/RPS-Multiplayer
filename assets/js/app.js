@@ -1,19 +1,4 @@
 document.addEventListener('DOMContentLoaded', function () {
-    const game = {
-        Rock: 2,
-        Scissors: 1,
-        Paper: 0
-    }
-
-    const player = {
-        name: null,
-        win: 0,
-        lose: 0,
-        draw: 0,
-        slot: null
-    };
-
-    let otherPlayer;
 
     firebase.initializeApp({
         apiKey: "AIzaSyBlpgyV1NYKnitdSRUCP83Bb1Sl6qWqEQ0",
@@ -37,92 +22,90 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const db = firebase.database();
     const dbRef = db.ref();
+    const game = {
+        Rock: 2,
+        Scissors: 1,
+        Paper: 0
+    }
 
-    dbRef.update({ turn: 0 });
+    const testGame = {
+        2: 'Rock',
+        1: 'Scissors',
+        0: 'Paper'
+    }
 
+    const player = otherPlayer = {
+        name: null,
+        win: 0,
+        lose: 0,
+        draw: 0,
+        slot: null
+    };
+
+    for (let p = 0; p < 3; p++) {
+        for (let o = 0; o < 3; o++) {
+            console.log(testGame[p], testGame[o], ((p != o) ? (Math.abs(p - o) > 1) ? (o > p) : (p > o) : 0))
+        }
+    }
+
+
+    dbRef.update({
+        turn: 0
+    });
+
+    // Page refresh or navigation will remove your player and set the turn to 0 - waiting for players.
     window.addEventListener("beforeunload", function (event) {
-        console.log(`Before Unload ${event}`)
-        console.log(JSON.stringify(player))
         if (player.slot) {
             db.ref(`players/${player.slot}`).remove()
                 .then(function () {
-                    console.log("Remove succeeded.")
+                    // console.log("Remove succeeded.")
                 })
                 .catch(function (error) {
-                    console.log("Remove failed: " + error.message)
+                    // console.log("Remove failed: " + error.message)
                 });
         }
     });
 
-    // Player takes a turn
-    $('.gameButton').on('click', function () {
-        console.log($(this).text())
-        console.log($(this).parent().prop('id'))
-        let playerNum = $(this).prop('id').toString().match(/^p(.)/)[1]
-        console.log(`player ${playerNum} ${player.slot}`)
-        if (playerNum == player.slot) {
-            dbRef.child('players').child(playerNum).update({ choice: $(this).text() })
-            player.choice = $(this).text();
-            $(`.${player.slot}.gameButton`).hide();
-            $(this).replaceWith(
-                $('<h1>').text($(this).text())
-            ).show();
-            dbRef.child('turn').transaction((turn) => {
-                console.log(`TURN: ${turn}`)
-
-                if (turn == 2) {
-                    console.log(`${player.name} chose ${player.choice}`);
-                    console.log(`${otherPlayer.name} chose ${otherPlayer.choice}`);
-                    let p = game[player.choice];
-                    let o = game[otherPlayer.choice];
-                    let winner;
-                    if (Math.abs(p - o) > 1) {
-                        winner = (o > p)
-                    } else {
-                        winner = (p > 0)
-                    }
-
-                    console.log(`Winner is ${winner}`)
-
-                    let winnerName = winner ? player.name : otherPlayer.name
-
-                    dbRef.update({ winner: winnerName })
+    // Fires at the start of a new turn
+    db.ref('turn').on('value', turn => {
+        turn = parseInt(JSON.stringify(turn));
+        switch (turn) {
+            case 0:
+                console.log('GAME RESET');
+                $('.winMsg').remove();
+                $('.playerChoice').remove();
+                $('.gameButton').show();
+                player.choice = "";
+                otherPlayer.choice = "";
+                //CONTROLLER ONLY
+                if (player.slot == 1) {
+                    dbRef.update({
+                        turn: 1
+                    })
+                }
+                break;
+            case player.slot:
+                $('#gameMsg').text("It's Your Turn!");
+                break;
+            case 3:
+                //After two seconds, reset the game so players can go again.
+                //CONTROLLER ONLY
+                if (player.slot == 1) {
+                    setTimeout(() => {
+                        dbRef.update({
+                            turn: 0
+                        });
+                    }, 2000)
                 }
 
-
-
-
-
-                return ++turn;
-            });
-        }
-    });
-
-
-    db.ref('winner').once('value', snapshot => {
-        // db.ref('winner').off();
-        console.log(`103 Winner is ${snapshot.val()}`);
-        if (snapshot) {
-            db.ref('winner').remove().then(() => {
-                console.log(`Winner is ${snapshot.val()}`);
-                $('#winner').append($('<h1>').text(snapshot.val()));
-            })
-        }
-    });
-
-    db.ref('turn').on('value', turn => {
-        turn = JSON.stringify(turn)
-        if (turn) {
-            if (turn == 3) {
-
-            } else if (turn == player.slot) {
-                $('#gameMsg').text("It's Your Turn!");
-            } else {
+                break;
+            default:
                 if (otherPlayer) {
                     $('#gameMsg').text(`Waiting for ${otherPlayer.name} to choose.`);
-                } else { }
-                $('#gameMsg').text(`Waiting for the other player to choose.`);
-            }
+                } else {
+                    $('#gameMsg').text(`Waiting for the other player to choose.`);
+                };
+                break;
         }
     });
 
@@ -140,14 +123,29 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
+        // After having local copies, remove their choices.
+        player.choice = "";
+        otherPlayer.choice = "";
+
+        //Update player stats from our local copies of the players
+        if (player.slot) {
+            $(`.${player.slot}.stat_w`).text(player.win);
+            $(`.${player.slot}.stat_l`).text(player.lose);
+            $(`.${player.slot}.stat_d`).text(player.draw);
+        }
+        if (otherPlayer.slot) {
+            $(`.${otherPlayer.slot}.stat_w`).text(otherPlayer.win);
+            $(`.${otherPlayer.slot}.stat_l`).text(otherPlayer.lose);
+            $(`.${otherPlayer.slot}.stat_d`).text(otherPlayer.draw);
+        }
+
         // page elements for this player.
         [1, 2].forEach(num => {
-            let name = snapshot.child(`${num}/name`).val();
             if (player.slot == num) {
                 if (snapshot.child(num).exists()) {
                     $('#welcome').empty()
                         .append(
-                            $('<h3>').text(`Hi ${name}!  You are Player ${num}`)
+                            $('<h3>').text(`Hi ${snapshot.child(`${num}/name`).val()}!  You are Player ${num}`)
                         )
                         .append(
                             $(`<h3 class="player${num}" id="gameMsg">`)
@@ -169,18 +167,12 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         // page elements for both players
         [1, 2].forEach(num => {
+
+            // Show players names or placeholder
             if (snapshot.child(num).exists()) {
                 let name = snapshot.child(`${num}/name`).val();
-                console.log(`Drawing player ${num} - ${name}`)
                 $(`.${num}.nameTag`).text(name);
-                if (snapshot.child(num).child('choice').exists()) {
-                    // console.log(`Drawing choice ${snapshot.child(num).child('choice').val()}`)
-                    // $(`.${num}.gameButton`).hide();
-                    // $(`.${num}.gameButtons`).append(
-                    //     $('<h4>').addClass(num).addClass('choice').text("CHOICE")
-                    //     // snapshot.child(num).child('choice').val()
-                    // );
-                } else {
+                if (snapshot.child(num).child('choice').exists()) {} else {
                     $(`.${num}.choice`).remove();
                     $(`.${num}.gameButton`).show();
                 }
@@ -190,18 +182,63 @@ document.addEventListener('DOMContentLoaded', function () {
                 $(`.${num}.gameButton`).hide();
                 $(`.${num}.stats`).hide();
             }
+
+            //Show players' choices
+            [1, 2].forEach(num => {
+                if (snapshot.child(`${num}/choice`).exists()) {
+                    if (snapshot.child(`${num}/choice`).val() != "") {
+                        if (!$(`.${num}.playerChoice`).length) {
+                            console.log(`Player ${num} choice is ${snapshot.child(`${num}/choice`).val()}`)
+                            console.log('LENGTH: ' + $(`.${num}.playerChoice`).length)
+                            $(`.${num}.gameButton`).hide();
+                            $(`.${num}.gameButtons`).append(
+                                $('<h1>').addClass(`${num} playerChoice`).text(
+                                    snapshot.child(`${num}/choice`).val()
+                                )
+                            );
+                        }
+                    }
+                } else {
+                    $(`h1.${num}.playerChoice`).remove();
+                    $(`.${num}.gameButton`).show();
+                }
+            });
+
+
+
+
+
+
         });
 
     });
 
+    // game over man
+    db.ref('winner').on('value', snapshot => {
+        console.log(`DB says winner is ${snapshot.val()}`)
+        if (snapshot.val()) {
+            let winner = snapshot.val();
+            let winMsg = (winner != 0) ? (winner == player.slot) ? `${player.name} Wins!` : `${otherPlayer.name} Wins!` : "Tie Game!"
+            console.log(`DB says winner is ${winner}`)
+            $('#winner').append(
+                $('<h1>').addClass('winMsg').text(winMsg)
+            )
+            // CONTROLLER ONLY
+            if (player.slot == 1) {
+                db.ref('winner').remove()
+            }
+        }
+    })
 
-    // Event fires when user clicks Start after having put in his name.
+
+    // Event fires when user hits ENTER  after having put in his name.
     $('#welcome').on('keyup', '#playerName', (e) => {
         event.preventDefault();
         if (event.keyCode === 13) {
             document.getElementById("startButton").click();
         }
     })
+    // Event fires when user clicks Start after having put in his name.
     $('#welcome').on('click', '#startButton', (e) => {
         player.name = $('#playerName').val();
         dbRef.once('value', snapshot => {
@@ -209,12 +246,12 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log(`Slot will be ${player.slot}`)
         }).then(() => {
             dbRef.child(`players/${player.slot}`).set({
-                name: player.name,
-                win: 0,
-                lose: 0,
-                draw: 0,
-                slot: player.slot
-            })
+                    name: player.name,
+                    win: 0,
+                    lose: 0,
+                    draw: 0,
+                    slot: player.slot
+                })
                 .catch(e => {
                     console.log(e);
                 })
@@ -233,6 +270,60 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
 
+    // Player takes a turn
+    $('.gameButton').on('click', function () {
+        let playerNum = $(this).prop('id').toString().match(/^p(.)/)[1]
+        dbRef.child('turn').transaction((turn) => {
+            // Your clicks out of turn or on the other guys buttons mean nothing.
+            if (playerNum == player.slot && playerNum == turn) {
+                player.choice = $(this).text();
+                console.log(`PLAYER ${player.slot} CHOOSES ${player.choice}`)
+                // Second turn decides the winner (duh)
+                // Player 2 client-side always arbitrates the result.
+                if (turn == 2) {
+                    let p = game[player.choice];
+                    let o = game[otherPlayer.choice];
+                    let winner = (p != o) ? (Math.abs(p - o) > 1) ? (o > p) : (p > o) : 0
+
+                    console.log(`RESULT: ${player.choice} ${otherPlayer.choice} --> ${winner}`)
+                    // update our local player copy
+                    player.win += winner;
+                    player.lose += !winner;
+                    player.draw += (p == o);
+
+                    // update our local opponent copy
+                    otherPlayer.win += !winner;
+                    otherPlayer.lose += winner;
+                    otherPlayer.draw += (p == o);
+
+                    // Signal to db that game is over
+                    dbRef.update({
+                        winner: winner ? player.slot : otherPlayer.slot,
+                        players: {
+                            [player.slot]: {
+                                name: player.name,
+                                choice: player.choice,
+                                slot: player.slot,
+                                win: player.win,
+                                lose: player.lose,
+                                draw: player.draw
+                            },
+                            [otherPlayer.slot]: {
+                                name: otherPlayer.name,
+                                choice: otherPlayer.choice,
+                                slot: otherPlayer.slot,
+                                win: otherPlayer.win,
+                                lose: otherPlayer.lose,
+                                draw: otherPlayer.draw
+                            }
+                        }
+                    })
+                }
+            }
+            return ++turn;
+        });
+
+    });
 
 
 
